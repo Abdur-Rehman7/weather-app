@@ -4,7 +4,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 export const fetchForecast = createAsyncThunk(
   "forecast/fetchForecast",
   async (city, { rejectWithValue }) => {
-    const API_KEY = "YOUR_API_KEY"; // replace with your actual key
+    const API_KEY = "e2bdde13e1f38e7344bb79133a1658e3"; // replace with your actual key
     try {
       const res = await fetch(
         `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${API_KEY}&units=metric`

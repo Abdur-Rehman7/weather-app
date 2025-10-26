@@ -9,9 +9,25 @@ export default function WeatherCard({ weather = null }) {
     return <Text style={{ color: darkMode ? "#fff" : "#000" }}>No weather data</Text>;
   }
 
+  // 🔹 Calculate local time using timezone
+  const getLocalTime = () => {
+    if (!weather.dt || !weather.timezone) return "";
+    const localTime = new Date((weather.dt + weather.timezone) * 1000);
+    const hours = localTime.getUTCHours();
+    const minutes = localTime.getUTCMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const formattedHour = hours % 12 || 12;
+    return `${formattedHour}:${minutes < 10 ? "0" : ""}${minutes} ${ampm}`;
+  };
+
+  const isDay = weather?.weather[0]?.icon?.includes("d");
+
   return (
     <View style={[styles.card, { backgroundColor: darkMode ? "#222" : "#fff" }]}>
       <Text style={[styles.city, { color: darkMode ? "#fff" : "#333" }]}>{weather.name}</Text>
+      <Text style={[styles.localTime, { color: darkMode ? "#ccc" : "#555" }]}>
+        {getLocalTime()} {isDay ? "☀️" : "🌙"}
+      </Text>
       <Image
         source={{
           uri: `https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`,
@@ -35,8 +51,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: "center",
     elevation: 5,
+    minWidth: 200,
   },
   city: { fontSize: 24, fontWeight: "bold" },
+  localTime: { fontSize: 16, marginBottom: 5 },
   temp: { fontSize: 36, marginVertical: 5 },
   desc: { fontSize: 18, textTransform: "capitalize" },
 });

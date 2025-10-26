@@ -1,8 +1,8 @@
 import React from "react";
-import { View, Text, FlatList, Image, StyleSheet } from "react-native";
+import { View, Text, FlatList, StyleSheet, Image } from "react-native";
 import { useSelector } from "react-redux";
 
-export default function ForecastList({ data = [] }) {
+export default function ForecastList({ data = [], timezone = 0 }) {
   const dark = useSelector((state) => state.theme.darkMode);
 
   if (!Array.isArray(data) || data.length === 0) {
@@ -13,31 +13,40 @@ export default function ForecastList({ data = [] }) {
     );
   }
 
-  // Filter to get one forecast per day (12:00 PM)
-  const dailyForecast = data.filter(item => item.dt_txt.includes("12:00:00"));
+  const renderItem = ({ item }) => {
+    // Convert timestamp + timezone to local time
+    const dt = new Date((item.dt + timezone) * 1000);
+    const hours = dt.getUTCHours();
+    const minutes = dt.getUTCMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const formattedHour = hours % 12 || 12;
+    const timeString = `${formattedHour}:${minutes < 10 ? "0" : ""}${minutes} ${ampm}`;
 
-  const renderItem = ({ item }) => (
-    <View style={[styles.card, { backgroundColor: dark ? "rgba(50,50,50,0.8)" : "#fff" }]}>
-      <Text style={{ color: dark ? "#fff" : "#000", fontWeight: "bold" }}>
-        {item.dt_txt.split(" ")[0]}
-      </Text>
-      <Image
-        source={{ uri: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png` }}
-        style={{ width: 50, height: 50 }}
-      />
-      <Text style={{ color: dark ? "#fff" : "#000", fontSize: 16 }}>
-        {Math.round(item.main.temp)}°C
-      </Text>
-      <Text style={{ color: dark ? "#ccc" : "#555", textTransform: "capitalize" }}>
-        {item.weather[0].description}
-      </Text>
-    </View>
-  );
+    return (
+      <View style={[styles.card, { backgroundColor: dark ? "#222" : "#fff" }]}>
+        <Text style={{ color: dark ? "#fff" : "#000", fontWeight: "bold" }}>
+          {timeString}
+        </Text>
+        <Image
+          source={{
+            uri: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`,
+          }}
+          style={{ width: 50, height: 50 }}
+        />
+        <Text style={{ color: dark ? "#fff" : "#000", fontSize: 16 }}>
+          {Math.round(item.main.temp)}°C
+        </Text>
+        <Text style={{ color: dark ? "#ccc" : "#555", textTransform: "capitalize" }}>
+          {item.weather[0].description}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <FlatList
-      data={dailyForecast}
-      keyExtractor={(item) => item.dt.toString()}
+      data={data}
+      keyExtractor={(item, index) => index.toString()}
       horizontal
       showsHorizontalScrollIndicator={false}
       renderItem={renderItem}
@@ -53,6 +62,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     elevation: 3,
-    minWidth: 100,
+    minWidth: 80,
   },
 });
