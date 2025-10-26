@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, StyleSheet, StatusBar } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  StatusBar,
+  RefreshControl,
+} from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchWeather, fetchWeatherByCoords } from "../redux/weatherSlice";
 import { fetchForecast } from "../redux/forecastSlice";
@@ -43,7 +50,8 @@ export default function HomeScreen() {
   const [initialWeather, setInitialWeather] = useState(defaultWeather);
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [gradientColors, setGradientColors] = useState(["#FFD580", "#FFA500"]);
-  const [timeString, setTimeString] = useState("");
+  const [pakistanTime, setPakistanTime] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Load favorites and detect location
   useEffect(() => {
@@ -86,32 +94,41 @@ export default function HomeScreen() {
     })();
   }, [dispatch]);
 
-  // Update time and gradient based on weather
+  // Pakistan Standard Time (UTC+5)
   useEffect(() => {
-    const updateTimeAndGradient = () => {
-      const tzOffset = (weather?.timezone || 0) * 1000;
+    const updatePakistanTime = () => {
       const nowUTC = new Date().getTime();
-      const localTime = new Date(nowUTC + tzOffset);
-      const hours = localTime.getUTCHours();
-      const minutes = localTime.getUTCMinutes();
+      const pstOffset = 5 * 60 * 60 * 1000;
+      const pstTime = new Date(nowUTC + pstOffset);
+      const hours = pstTime.getUTCHours();
+      const minutes = pstTime.getUTCMinutes();
+      const seconds = pstTime.getUTCSeconds();
       const ampm = hours >= 12 ? "PM" : "AM";
       const formattedHour = hours % 12 || 12;
-      setTimeString(`${formattedHour}:${minutes < 10 ? "0" : ""}${minutes} ${ampm}`);
+      const formattedMinute = minutes < 10 ? `0${minutes}` : minutes;
+      const formattedSecond = seconds < 10 ? `0${seconds}` : seconds;
 
-      const temp = weather?.main?.temp || defaultWeather.main.temp;
-      const isDay = hours >= 6 && hours < 18;
-      setGradientColors(getGradientColors(temp, isDay));
+      setPakistanTime(`${formattedHour}:${formattedMinute}:${formattedSecond} ${ampm}`);
     };
 
-    updateTimeAndGradient();
-    const interval = setInterval(updateTimeAndGradient, 60000);
+    updatePakistanTime();
+    const interval = setInterval(updatePakistanTime, 1000);
     return () => clearInterval(interval);
-  }, [weather]);
+  }, []);
 
-  const handleSearch = () => {
+  // Pull-to-refresh handler
+  const handleRefresh = async () => {
+    setLoading(true);
+    await dispatch(fetchWeather(city));
+    await dispatch(fetchForecast(city));
+    setLoading(false);
+  };
+
+  // Manual search (no spinner)
+  const handleSearch = async () => {
     if (!city) return;
-    dispatch(fetchWeather(city));
-    dispatch(fetchForecast(city));
+    await dispatch(fetchWeather(city));
+    await dispatch(fetchForecast(city));
   };
 
   const handleSave = () => {
@@ -127,28 +144,31 @@ export default function HomeScreen() {
     ? { name: "Detecting your location...", main: { temp: "--" }, weather: [{ description: "" }] }
     : weather || initialWeather;
 
-  const showForecast =
-    forecastStatus === "succeeded" && forecast && forecast.length > 0;
+  const showForecast = forecastStatus === "succeeded" && forecast && forecast.length > 0;
 
   return (
     <LinearGradient colors={gradientColors} style={{ flex: 1 }}>
       <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
+        }
+      >
+        {/* Pakistan Standard Time */}
+        <Text style={[styles.time, { color: dark ? "#fff" : "#333", fontSize: 20 }]}>
+          Pakistan Time: {pakistanTime}
+        </Text>
+
         <Text style={[styles.title, { color: dark ? "#fff" : "#000" }]}>
           🌤️ Weather App
         </Text>
 
-        <Text style={[styles.time, { color: dark ? "#fff" : "#333" }]}>{timeString}</Text>
-
         <ThemeToggle />
 
-        <SearchBar
-          city={city}
-          setCity={setCity}
-          onSearch={handleSearch}
-          onSave={handleSave}
-        />
+        <SearchBar city={city} setCity={setCity} onSearch={handleSearch} onSave={handleSave} />
 
+        {/* WeatherCard (card now calculates its own local time) */}
         <WeatherCard weather={weatherToShow} />
 
         {showForecast ? (

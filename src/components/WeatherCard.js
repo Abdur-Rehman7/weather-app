@@ -1,24 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { useSelector } from "react-redux";
 
 export default function WeatherCard({ weather = null }) {
   const darkMode = useSelector((state) => state.theme.darkMode);
+  const [localTime, setLocalTime] = useState("");
 
   if (!weather || !weather.main) {
     return <Text style={{ color: darkMode ? "#fff" : "#000" }}>No weather data</Text>;
   }
 
-  // 🔹 Calculate local time using timezone
-  const getLocalTime = () => {
-    if (!weather.dt || !weather.timezone) return "";
-    const localTime = new Date((weather.dt + weather.timezone) * 1000);
-    const hours = localTime.getUTCHours();
-    const minutes = localTime.getUTCMinutes();
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const formattedHour = hours % 12 || 12;
-    return `${formattedHour}:${minutes < 10 ? "0" : ""}${minutes} ${ampm}`;
-  };
+  // 🔹 Update local time every second
+  useEffect(() => {
+    const updateTime = () => {
+      const nowUTC = Date.now();
+      const cityTimeMs = nowUTC + weather.timezone * 1000; // timezone in seconds
+      const cityDate = new Date(cityTimeMs);
+      let hours = cityDate.getUTCHours();
+      const minutes = cityDate.getUTCMinutes();
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+      setLocalTime(`${hours}:${formattedMinutes} ${ampm}`);
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [weather]);
 
   const isDay = weather?.weather[0]?.icon?.includes("d");
 
@@ -26,7 +35,7 @@ export default function WeatherCard({ weather = null }) {
     <View style={[styles.card, { backgroundColor: darkMode ? "#222" : "#fff" }]}>
       <Text style={[styles.city, { color: darkMode ? "#fff" : "#333" }]}>{weather.name}</Text>
       <Text style={[styles.localTime, { color: darkMode ? "#ccc" : "#555" }]}>
-        {getLocalTime()} {isDay ? "☀️" : "🌙"}
+        {localTime} {isDay ? "☀️" : "🌙"}
       </Text>
       <Image
         source={{
