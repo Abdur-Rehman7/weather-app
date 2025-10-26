@@ -1,38 +1,47 @@
 import React from "react";
-import { View, Text, FlatList, StyleSheet, Image } from "react-native";
+import { View, Text, FlatList, StyleSheet } from "react-native";
 import { useSelector } from "react-redux";
 
-export default function ForecastList({ data = [], timezone = 0 }) {
+export default function ForecastList({ data = [], timezone = 0, currentTime }) {
   const dark = useSelector((state) => state.theme.darkMode);
 
   if (!Array.isArray(data) || data.length === 0) {
-    return (
-      <Text style={{ color: dark ? "#fff" : "#000", marginTop: 10 }}>
-        No forecast data available
-      </Text>
-    );
+    return <Text style={{ color: dark ? "#fff" : "#000", marginTop: 10 }}>No forecast data available</Text>;
   }
 
-  const renderItem = ({ item }) => {
-    // Convert timestamp + timezone to local time
-    const dt = new Date((item.dt + timezone) * 1000);
-    const hours = dt.getUTCHours();
-    const minutes = dt.getUTCMinutes();
+  const formatLocalTime = (dt) => {
+    const localTime = new Date((dt + timezone) * 1000);
+
+    // Time
+    const hours = localTime.getUTCHours();
+    const minutes = localTime.getUTCMinutes();
     const ampm = hours >= 12 ? "PM" : "AM";
     const formattedHour = hours % 12 || 12;
-    const timeString = `${formattedHour}:${minutes < 10 ? "0" : ""}${minutes} ${ampm}`;
+    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+
+    // Date
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const dayName = days[localTime.getUTCDay()];
+    const monthName = months[localTime.getUTCMonth()];
+    const date = localTime.getUTCDate();
+
+    return {
+      time: `${formattedHour}:${formattedMinutes} ${ampm}`,
+      date: `${dayName}, ${monthName} ${date}`
+    };
+  };
+
+  const renderItem = ({ item }) => {
+    const { time, date } = formatLocalTime(item.dt);
+    const isDay = item.weather[0].icon.includes("d");
 
     return (
-      <View style={[styles.card, { backgroundColor: dark ? "#222" : "#fff" }]}>
+      <View style={[styles.card, { backgroundColor: dark ? "rgba(50,50,50,0.8)" : "#fff" }]}>
+        <Text style={{ color: dark ? "#ccc" : "#555", fontSize: 12, marginBottom: 2 }}>{date}</Text>
         <Text style={{ color: dark ? "#fff" : "#000", fontWeight: "bold" }}>
-          {timeString}
+          {time} {isDay ? "☀️" : "🌙"}
         </Text>
-        <Image
-          source={{
-            uri: `https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png`,
-          }}
-          style={{ width: 50, height: 50 }}
-        />
         <Text style={{ color: dark ? "#fff" : "#000", fontSize: 16 }}>
           {Math.round(item.main.temp)}°C
         </Text>
@@ -51,6 +60,7 @@ export default function ForecastList({ data = [], timezone = 0 }) {
       showsHorizontalScrollIndicator={false}
       renderItem={renderItem}
       contentContainerStyle={{ paddingVertical: 10 }}
+      extraData={currentTime} // passed from parent
     />
   );
 }
@@ -62,6 +72,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     elevation: 3,
-    minWidth: 80,
+    minWidth: 100,
   },
 });

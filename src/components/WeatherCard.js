@@ -5,27 +5,42 @@ import { useSelector } from "react-redux";
 export default function WeatherCard({ weather = null }) {
   const darkMode = useSelector((state) => state.theme.darkMode);
   const [localTime, setLocalTime] = useState("");
+  const [localDate, setLocalDate] = useState("");
 
   if (!weather || !weather.main) {
     return <Text style={{ color: darkMode ? "#fff" : "#000" }}>No weather data</Text>;
   }
 
-  // 🔹 Update local time every second
+  // 🔹 Update local time & date every minute
   useEffect(() => {
     const updateTime = () => {
       const nowUTC = Date.now();
-      const cityTimeMs = nowUTC + weather.timezone * 1000; // timezone in seconds
+      const cityTimeMs = nowUTC + weather.timezone * 1000; // timezone offset in seconds
       const cityDate = new Date(cityTimeMs);
+
+      // Time
       let hours = cityDate.getUTCHours();
       const minutes = cityDate.getUTCMinutes();
       const ampm = hours >= 12 ? "PM" : "AM";
       hours = hours % 12 || 12;
       const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
       setLocalTime(`${hours}:${formattedMinutes} ${ampm}`);
+
+      // Date
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      const dayName = days[cityDate.getUTCDay()];
+      const monthName = months[cityDate.getUTCMonth()];
+      const date = cityDate.getUTCDate();
+      const year = cityDate.getUTCFullYear();
+      setLocalDate(`${dayName}, ${monthName} ${date}, ${year}`);
     };
 
     updateTime();
-    const interval = setInterval(updateTime, 1000);
+    const interval = setInterval(updateTime, 60000); // update every minute
     return () => clearInterval(interval);
   }, [weather]);
 
@@ -36,6 +51,9 @@ export default function WeatherCard({ weather = null }) {
       <Text style={[styles.city, { color: darkMode ? "#fff" : "#333" }]}>{weather.name}</Text>
       <Text style={[styles.localTime, { color: darkMode ? "#ccc" : "#555" }]}>
         {localTime} {isDay ? "☀️" : "🌙"}
+      </Text>
+      <Text style={[styles.localDate, { color: darkMode ? "#ccc" : "#555", marginBottom: 5 }]}>
+        {localDate}
       </Text>
       <Image
         source={{
@@ -63,7 +81,8 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   city: { fontSize: 24, fontWeight: "bold" },
-  localTime: { fontSize: 16, marginBottom: 5 },
+  localTime: { fontSize: 16, marginBottom: 2 },
+  localDate: { fontSize: 14 },
   temp: { fontSize: 36, marginVertical: 5 },
   desc: { fontSize: 18, textTransform: "capitalize" },
 });

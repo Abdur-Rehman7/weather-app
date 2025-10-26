@@ -51,6 +51,8 @@ export default function HomeScreen() {
   const [detectingLocation, setDetectingLocation] = useState(false);
   const [gradientColors, setGradientColors] = useState(["#FFD580", "#FFA500"]);
   const [pakistanTime, setPakistanTime] = useState("");
+  const [cityTime, setCityTime] = useState("");
+  const [cityDate, setCityDate] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Load favorites and detect location
@@ -96,8 +98,8 @@ export default function HomeScreen() {
 
   // Pakistan Standard Time (UTC+5)
   useEffect(() => {
-    const updatePakistanTime = () => {
-      const nowUTC = new Date().getTime();
+    const interval = setInterval(() => {
+      const nowUTC = Date.now();
       const pstOffset = 5 * 60 * 60 * 1000;
       const pstTime = new Date(nowUTC + pstOffset);
       const hours = pstTime.getUTCHours();
@@ -107,16 +109,48 @@ export default function HomeScreen() {
       const formattedHour = hours % 12 || 12;
       const formattedMinute = minutes < 10 ? `0${minutes}` : minutes;
       const formattedSecond = seconds < 10 ? `0${seconds}` : seconds;
-
       setPakistanTime(`${formattedHour}:${formattedMinute}:${formattedSecond} ${ampm}`);
-    };
+    }, 1000);
 
-    updatePakistanTime();
-    const interval = setInterval(updatePakistanTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Pull-to-refresh handler
+  // City time, date, and gradient based on weather
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!weather?.timezone) return;
+
+      const nowUTC = Date.now();
+      const cityMs = nowUTC + weather.timezone * 1000;
+      const cityDateObj = new Date(cityMs);
+
+      // Time
+      let hours = cityDateObj.getUTCHours();
+      const minutes = cityDateObj.getUTCMinutes();
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+      setCityTime(`${hours}:${formattedMinutes} ${ampm}`);
+
+      // Date
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const dayName = days[cityDateObj.getUTCDay()];
+      const monthName = months[cityDateObj.getUTCMonth()];
+      const date = cityDateObj.getUTCDate();
+      const year = cityDateObj.getUTCFullYear();
+      setCityDate(`${dayName}, ${monthName} ${date}, ${year}`);
+
+      // Gradient
+      const temp = weather?.main?.temp || defaultWeather.main.temp;
+      const isDay = cityDateObj.getUTCHours() >= 6 && cityDateObj.getUTCHours() < 18;
+      setGradientColors(getGradientColors(temp, isDay));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [weather]);
+
+  // Pull-to-refresh
   const handleRefresh = async () => {
     setLoading(true);
     await dispatch(fetchWeather(city));
@@ -124,7 +158,6 @@ export default function HomeScreen() {
     setLoading(false);
   };
 
-  // Manual search (no spinner)
   const handleSearch = async () => {
     if (!city) return;
     await dispatch(fetchWeather(city));
@@ -151,11 +184,8 @@ export default function HomeScreen() {
       <StatusBar barStyle={dark ? "light-content" : "dark-content"} />
       <ScrollView
         contentContainerStyle={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={handleRefresh} />}
       >
-        {/* Pakistan Standard Time */}
         <Text style={[styles.time, { color: dark ? "#fff" : "#333", fontSize: 20 }]}>
           Pakistan Time: {pakistanTime}
         </Text>
@@ -168,8 +198,8 @@ export default function HomeScreen() {
 
         <SearchBar city={city} setCity={setCity} onSearch={handleSearch} onSave={handleSave} />
 
-        {/* WeatherCard (card now calculates its own local time) */}
-        <WeatherCard weather={weatherToShow} />
+        {/* WeatherCard with live city time & date */}
+        <WeatherCard weather={weatherToShow} cityTime={cityTime} cityDate={cityDate} />
 
         {showForecast ? (
           <ForecastList data={forecast} timezone={weather?.timezone || 0} />
